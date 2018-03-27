@@ -8,7 +8,7 @@
  * Author URI:      http://devialia.com/
  * Text Domain:     devialia-intersticial
  * Domain Path:     /languages
- * Version:         1.0.0
+ * Version:         1.0.1
  *
  * @package         Devialia_Intersticial
  */
@@ -22,7 +22,9 @@ class DevialiaIntersticial {
 		// Añade los styles y scripts necesarios
 		add_action('wp_enqueue_scripts', array($this, 'style_and_scripts_devialia_intersticial'));
 		// Imprime el intersticial
-		add_action('wp_footer', array($this, 'print_devialia_intersticial'));
+		if (get_option('activate_intersticial')) :
+			add_action('wp_footer', array($this, 'print_devialia_intersticial'));
+		endif;
 		// Registra las opciones del formulario de configuración
 		add_action('admin_init', array($this, 'register_options_page_devialia_intersticial'));
 	}
@@ -58,6 +60,7 @@ class DevialiaIntersticial {
 			</style>';
 		$html .= '
 		<div class="devialia_intersticial_wrapper" id="devialia_intersticial">
+			<div id="devialia_intersticial_background"></div>
 			<div class="devialia_intersticial_container">
 				<div class="devialia_intersticial_container__header">
 					<i class="fa fa-times" id="devialia_intersticial_container__header-close"></i>
@@ -121,6 +124,10 @@ class DevialiaIntersticial {
 				do_settings_sections('options-page-devialia-intersticial-group');
 				?>
 				<div class="group-field">
+					<label for="activate_intersticial">Activar el intersticial?</label>
+					<input type="checkbox" name="activate_intersticial" id="activate_intersticial" value="1" <?php checked(1, get_option('activate_intersticial'), true); ?>>
+				</div>
+				<div class="group-field">
 					<label for="z-index_intersticial">Z-INDEX del intersticial</label>
 					<input type="number" name="z-index_intersticial" id="z-index_intersticial" value="<?=get_option('z-index_intersticial');?>">
 				</div>
@@ -145,6 +152,11 @@ class DevialiaIntersticial {
 	* Registro de los campos para guardarlos, hacer un register_setting por campo
 	*/
 	function register_options_page_devialia_intersticial() {
+		// checkbox de activación del intersticial
+		register_setting(
+			'options-page-devialia-intersticial-group', 
+			'activate_intersticial'
+		);
 		// html_intersticial field
 		register_setting(
 			'options-page-devialia-intersticial-group', 

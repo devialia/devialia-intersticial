@@ -16,6 +16,9 @@
 if( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 class DevialiaIntersticial {
+	private $multilanguage;
+	private $languages;
+
 	function __construct() {
 		// Genera la página de opciones
 		add_action('admin_menu', array($this, 'menu_devialia_intersticial'));
@@ -26,7 +29,54 @@ class DevialiaIntersticial {
 			add_action('wp_footer', array($this, 'print_devialia_intersticial'));
 		endif;
 		// Registra las opciones del formulario de configuración
-		add_action('admin_init', array($this, 'register_options_page_devialia_intersticial'));
+		add_action('admin_init', array($this, 'register_options_page_devialia_intersticial'), 50);
+		// Define los idiomas antes que el resto de funciones y cuando se ha inicial el admin
+		add_action('admin_init', array($this, 'define_languages_devialia_intersticial'), 40);
+		add_action('init', array($this, 'define_languages_devialia_intersticial'), 40);
+	}
+
+	/**
+	* Función que determina si existe un plugin multilenguaje activo
+	*/
+	function is_multilanguage_devialia_intersticial() {
+		if (function_exists( 'icl_get_languages' )) {
+			$this->multilanguage = 'wpml';
+		} else if (function_exists('qtrans_getLanguage')) {
+			$this->multilanguage = 'qtranslate';
+		} else {
+			$this->multilanguage = null;
+		}
+	}
+
+	/**
+	* Función que devuelve los idiomas que están activados
+	*/
+	function get_active_languages_devialia_intersticial() {
+		if ($this->multilanguage == 'wpml') :
+			if ( !function_exists( 'icl_get_languages' ) ) { 
+			    require_once '/modules/wpml/wpml-legacy-api.php'; 
+			}
+			$args = 'skip_missing=0'; 
+			$wpml = icl_get_languages($args);
+			$languages = array();
+			foreach ($wpml as $key => $value) {
+				$languages[] = $value['code'];
+			}
+		elseif ($this->multilanguage == 'qtranslate') :
+			$languages = qtrans_getSortedLanguages();
+		else :
+			$languages[] = 'en';
+		endif;
+
+		return $languages;
+	}
+
+	/**
+	* Guardar los idiomas
+	*/
+	function define_languages_devialia_intersticial() {
+		$this->is_multilanguage_devialia_intersticial();
+		$this->languages = $this->get_active_languages_devialia_intersticial();
 	}
 
 	/**
@@ -54,6 +104,14 @@ class DevialiaIntersticial {
 			$zindex = get_option('z-index_intersticial');
 		}
 
+		if ($this->multilanguage == 'wpml') :
+			$html_field = 'html_intersticial_'.ICL_LANGUAGE_CODE;
+		elseif ($this->multilanguage == 'qtranslate') :
+			$html_field = 'html_intersticial_'.qtrans_getLanguage();
+		else :
+			$html_field = 'html_intersticial_en';
+		endif;
+
 		$html = '<style>
 			.devialia_intersticial_wrapper {z-index: '.$zindex.'}
 			'.get_option('css_intersticial').'
@@ -66,7 +124,7 @@ class DevialiaIntersticial {
 					<i class="fa fa-times" id="devialia_intersticial_container__header-close"></i>
 				</div>
 				<div class="devialia_intersticial_container__content">
-					'.get_option('html_intersticial').'
+					'.get_option($html_field).'
 				</div>
 			</div>
 		</div>
@@ -100,6 +158,7 @@ class DevialiaIntersticial {
 	*/
 	function print_options_page_devialia_intersticial(){
 		?>
+
 		<style>
 			#options-page-devialia-intersticial-form .group-field {
 				margin-bottom: 20px;
@@ -132,14 +191,26 @@ class DevialiaIntersticial {
 					<input type="number" name="z-index_intersticial" id="z-index_intersticial" value="<?=get_option('z-index_intersticial');?>">
 				</div>
 				<div class="group-field">
-					<label for="html_intersticial">HTML del intersticial</label>
-					<?php wp_editor( get_option('html_intersticial'), "html_intersticial", array() ); ?>
-				</div>
-				<div class="group-field">
 					<label for="css_intersticial">CSS del intersticial</label>
 					<p><?=__('Se recomienda encabezar cada regla css con #devialia_intersticial para no afectar a otros elementos.')?></p>
 					<textarea name="css_intersticial" id="css_intersticial"><?=get_option('css_intersticial');?></textarea>
 				</div>
+				<?php
+				$i = 0;
+				foreach ($this->languages as $key => $value) {
+					if ($i == 0) {
+						$txt = ' / Default';
+					} else {
+						$txt = '';
+					}
+
+					echo '<div class="group-field">
+						<label for="html_intersticial_'.$value.'">HTML del intersticial '.strtoupper($value).$txt.'</label>';
+						wp_editor( get_option('html_intersticial_'.$value), "html_intersticial_".$value, array() );
+					echo '</div>';
+					$i++;
+				}
+				?>
 				<div class="group-field">
 					<?php submit_button(); ?>
 				</div>
@@ -151,17 +222,19 @@ class DevialiaIntersticial {
 	/**
 	* Registro de los campos para guardarlos, hacer un register_setting por campo
 	*/
-	function register_options_page_devialia_intersticial() {
+	function register_options_page_devialia_intersticial() {		
 		// checkbox de activación del intersticial
 		register_setting(
 			'options-page-devialia-intersticial-group', 
 			'activate_intersticial'
 		);
-		// html_intersticial field
-		register_setting(
-			'options-page-devialia-intersticial-group', 
-			'html_intersticial'
-		);
+		foreach ($this->languages as $key => $value) {
+			// html_intersticial field
+			register_setting(
+				'options-page-devialia-intersticial-group', 
+				'html_intersticial_'.$value
+			);
+		}
 		// css_intersticial field
 		register_setting(
 			'options-page-devialia-intersticial-group', 
